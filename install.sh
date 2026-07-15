@@ -11,12 +11,30 @@ while [[ $# -gt 0 ]]; do
         --no-install) INSTALL_MODE="no" ;;
         --run)        RUN_MODE="yes" ;;
         --no-run)     RUN_MODE="no" ;;
+        --output)
+            shift
+            if [[ -z "${1:-}" ]]; then
+                echo "错误: --output 需要指定目录" >&2
+                exit 1
+            fi
+            BUILD_DIR="$1"
+            # 尝试创建目录以检查权限
+            mkdir -p "$BUILD_DIR" 2>/dev/null || {
+                echo "错误: 无法创建输出目录 $BUILD_DIR" >&2
+                exit 1
+            }
+            if [[ ! -w "$BUILD_DIR" ]]; then
+                echo "错误: 输出目录不可写: $BUILD_DIR" >&2
+                exit 1
+            fi
+            ;;
         *)
-            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run]"
+            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run] [--output <dir>]"
             echo "  --install     自动安装到 /Applications，不询可"
             echo "  --no-install  跳过安装，不询可"
             echo "  --run         安装后自动运行，不询可"
             echo "  --no-run      安装后不运行，不询可"
+            echo "  --output      指定 .app 输出目录 (默认: build)"
             echo "  (不传参则全部交互询问)"
             exit 1
             ;;
@@ -24,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-BUILD_DIR="build"
+BUILD_DIR="${BUILD_DIR:-build}"
 APP_NAME="WeSafeChat"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents/MacOS"
