@@ -52,8 +52,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(safeMenuItem)
         menu.addItem(autoLaunchMenuItem)
-        menu.addItem(delaySubmenuItem)
         menu.addItem(idleDetectionMenuItem)
+        menu.addItem(delaySubmenuItem)
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
