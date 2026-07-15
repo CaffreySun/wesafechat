@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
 
-# Tri-state: unset=ask, true=yes, false=no
-INSTALL_MODE=""   # ""=ask, "yes"=auto-install, "no"=skip-install
-RUN_MODE=""       # ""=ask, "yes"=auto-run,    "no"=skip-run
+LINK_MODE=""      # ""=skip, "yes"=create symlink
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -11,6 +9,7 @@ while [[ $# -gt 0 ]]; do
         --no-install) INSTALL_MODE="no" ;;
         --run)        RUN_MODE="yes" ;;
         --no-run)     RUN_MODE="no" ;;
+        --link)       LINK_MODE="yes" ;;
         --output)
             shift
             if [[ -z "${1:-}" ]]; then
@@ -28,13 +27,13 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
-        *)
-            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run] [--output <dir>]"
+            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run] [--output <dir>] [--link]"
             echo "  --install     自动安装到 /Applications，不询可"
             echo "  --no-install  跳过安装，不询可"
             echo "  --run         安装后自动运行，不询可"
             echo "  --no-run      安装后不运行，不询可"
             echo "  --output      指定 .app 输出目录 (默认: build)"
+            echo "  --link        创建软链接到 /Applications"
             echo "  (不传参则全部交互询问)"
             exit 1
             ;;
@@ -140,6 +139,17 @@ if $INSTALLED; then
             fi
             ;;
     esac
+fi
+
+
+# ── link phase ──
+link_target="/Applications/${APP_NAME}.app"
+if [[ "$LINK_MODE" == "yes" ]]; then
+    if [[ -e "$link_target" || -L "$link_target" ]]; then
+        rm -rf "$link_target"
+    fi
+    ln -sf "$APP_BUNDLE" "$link_target"
+    echo "==> 已链接到 ${link_target}"
 fi
 
 echo "==> 完成"
