@@ -18,7 +18,7 @@ echo "==> 复制 Info.plist..."
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
 
 echo "==> 生成应用图标..."
-ICONSET="AppIcon.iconset"
+ICONSET="${BUILD_DIR}/AppIcon.iconset"
 mkdir -p "$ICONSET"
 sips -z 16 16   logo.png --out "${ICONSET}/icon_16x16.png"
 sips -z 32 32   logo.png --out "${ICONSET}/icon_16x16@2x.png"
