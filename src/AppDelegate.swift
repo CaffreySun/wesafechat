@@ -21,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let delayItems: [NSMenuItem] = (1...10).map { i in
         NSMenuItem(title: "\(i) 秒", action: #selector(setDelay(_:)), keyEquivalent: "")
     }
+    let aboutMenuItem = NSMenuItem(title: "关于", action: #selector(showAbout), keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let loadedIdle = defaults.object(forKey: "idleDetectionEnabled")
@@ -58,6 +59,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(autoLaunchMenuItem)
         menu.addItem(idleDetectionMenuItem)
         menu.addItem(delaySubmenuItem)
+        menu.addItem(NSMenuItem.separator())
+        aboutMenuItem.target = self
+        aboutMenuItem.toolTip = "关于 WeSafeChat"
+        menu.addItem(aboutMenuItem)
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.toolTip = "退出 WeSafeChat"
@@ -130,6 +135,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    @objc func showAbout() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        if let icon = NSApp.applicationIconImage {
+            alert.icon = icon
+        }
+
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?.?.?"
+        alert.messageText = "WeSafeChat v\(version)"
+
+        let font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        let linkURL = URL(string: "https://github.com/CaffreySun/wesafechat")!
+
+        let attrStr = NSMutableAttributedString()
+        attrStr.append(NSAttributedString(string: "macOS 菜单栏工具，自动隐藏微信窗口。\n\nGitHub: ", attributes: [.font: font]))
+        attrStr.append(NSAttributedString(string: "github.com/CaffreySun/wesafechat", attributes: [
+            .link: linkURL,
+            .font: font,
+            .foregroundColor: NSColor.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+        ]))
+
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 280, height: 44))
+        textView.isEditable = false
+        textView.drawsBackground = false
+        textView.textContainerInset = .zero
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textStorage?.setAttributedString(attrStr)
+        textView.linkTextAttributes = [
+            .foregroundColor: NSColor.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+        ]
+
+        alert.accessoryView = textView
+        alert.addButton(withTitle: "确定")
+
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     func startObserving() {
