@@ -39,7 +39,7 @@ git tag v0.3.3 && git push --tags   # trigger CI release
 
 `swiftc main.swift src/*.swift -framework Cocoa -framework ServiceManagement`. No Xcode, no SPM.
 
-Icon pipeline: logo.png → sips (10 sizes) → iconutil → .icns → bundle Resources.
+Icon pipeline: resources/logo.png → sips (10 sizes) → iconutil → .icns → bundle Resources.
 
 ## CI/CD
 
