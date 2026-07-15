@@ -15,7 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isHidden = false
 
     let safeMenuItem = NSMenuItem(title: "启动", action: #selector(toggleSafeMode), keyEquivalent: "")
-    let idleDetectionMenuItem = NSMenuItem(title: "无操作隐藏: 开", action: #selector(toggleIdleDetection), keyEquivalent: "")
+    let idleDetectionMenuItem = NSMenuItem(title: "无操作隐藏", action: #selector(toggleIdleDetection), keyEquivalent: "")
     let autoLaunchMenuItem = NSMenuItem(title: "开机自启", action: #selector(toggleAutoLaunch), keyEquivalent: "")
     let delayMenu = NSMenu()
     let delayItems: [NSMenuItem] = (1...10).map { i in
