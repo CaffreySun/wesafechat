@@ -29,11 +29,13 @@ APP_NAME="WeSafeChat"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents/MacOS"
 
-if pgrep -x "$APP_NAME" &> /dev/null; then
-    echo "==> 终止正在运行的 ${APP_NAME}..."
-    pkill -x "$APP_NAME" || true
-    sleep 0.5
-fi
+kill_running() {
+    if pgrep -x "$APP_NAME" &> /dev/null; then
+        echo "==> 终止正在运行的 ${APP_NAME}..."
+        pkill -x "$APP_NAME" || true
+        sleep 0.5
+    fi
+}
 
 echo "==> 清理旧构建..."
 rm -rf "$APP_BUNDLE"
@@ -104,6 +106,7 @@ resolve_install
 if $INSTALLED; then
     case "$RUN_MODE" in
         yes)
+            kill_running
             open "$INSTALL_TARGET"
             echo "==> 已启动"
             ;;
@@ -113,6 +116,7 @@ if $INSTALLED; then
             echo ""
             read -r -p "是否立即运行？(y/n) " run_choice < /dev/tty
             if [[ "$run_choice" == "y" || "$run_choice" == "Y" ]]; then
+                kill_running
                 open "$INSTALL_TARGET"
                 echo "==> 已启动"
             fi
