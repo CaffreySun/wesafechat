@@ -36,3 +36,7 @@ Package.resolved
 
 # App bundle
 WeSafeChat.app/
+
+# Icon build artifacts
+*.iconset/
+*.icns
