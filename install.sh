@@ -60,7 +60,7 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$CONTENTS"
 
 echo "==> 编译 ${APP_NAME}..."
-swiftc main.swift -o "${CONTENTS}/${APP_NAME}" \
+swiftc main.swift src/*.swift -o "${CONTENTS}/${APP_NAME}" \
   -framework Cocoa -framework ServiceManagement
 
 echo "==> 复制 Info.plist..."
