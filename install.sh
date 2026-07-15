@@ -27,6 +27,7 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        *)
             echo "用法: bash install.sh [--install|--no-install] [--run|--no-run] [--output <dir>] [--link]"
             echo "  --install     自动安装到 /Applications，不询可"
             echo "  --no-install  跳过安装，不询可"
