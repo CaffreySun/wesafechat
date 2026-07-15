@@ -10,10 +10,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var closeTimer: Timer?
     var idleCheckTimer: Timer?
+    var idleDetectionEnabled = true
     var isSafing = false
     var isHidden = false
 
     let safeMenuItem = NSMenuItem(title: "启动", action: #selector(toggleSafeMode), keyEquivalent: "")
+    let idleDetectionMenuItem = NSMenuItem(title: "无操作隐藏: 开", action: #selector(toggleIdleDetection), keyEquivalent: "")
     let autoLaunchMenuItem = NSMenuItem(title: "开机自启", action: #selector(toggleAutoLaunch), keyEquivalent: "")
     let delayMenu = NSMenu()
     let delayItems: [NSMenuItem] = (1...10).map { i in
@@ -21,6 +23,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let loadedIdle = defaults.object(forKey: "idleDetectionEnabled")
+        idleDetectionEnabled = (loadedIdle as? Bool) ?? true
         delaySeconds = TimeInterval(defaults.integer(forKey: "delaySeconds").then { $0 == 0 ? 5 : $0 })
         let savedMonitoring = defaults.bool(forKey: "isSafing")
 
@@ -33,6 +37,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         safeMenuItem.target = self
         autoLaunchMenuItem.target = self
+        idleDetectionMenuItem.target = self
+        idleDetectionMenuItem.state = idleDetectionEnabled ? .on : .off
         autoLaunchMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
 
         let delaySubmenuItem = NSMenuItem(title: "安全延迟", action: nil, keyEquivalent: "")
@@ -47,6 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(safeMenuItem)
         menu.addItem(autoLaunchMenuItem)
         menu.addItem(delaySubmenuItem)
+        menu.addItem(idleDetectionMenuItem)
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
@@ -100,6 +107,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } catch {
             print("开机自启设置失败: \(error)")
+        }
+    }
+
+    @objc func toggleIdleDetection() {
+        idleDetectionEnabled.toggle()
+        defaults.set(idleDetectionEnabled, forKey: "idleDetectionEnabled")
+        idleDetectionMenuItem.state = idleDetectionEnabled ? .on : .off
+        if isSafing {
+            if idleDetectionEnabled {
+                startIdleCheck()
+            } else {
+                stopIdleCheck()
+            }
         }
     }
 
@@ -188,7 +208,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func startIdleCheck() {
         stopIdleCheck()
         idleCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self, self.isSafing else { return }
+            guard let self, self.isSafing, self.idleDetectionEnabled else { return }
             guard self.isWeChatFrontmost(), !self.isHidden else { return }
             if self.systemIdleTime() >= self.delaySeconds {
                 self.hideWeChat()
