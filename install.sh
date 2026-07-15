@@ -1,6 +1,29 @@
 #!/bin/bash
 set -e
 
+# Tri-state: unset=ask, true=yes, false=no
+INSTALL_MODE=""   # ""=ask, "yes"=auto-install, "no"=skip-install
+RUN_MODE=""       # ""=ask, "yes"=auto-run,    "no"=skip-run
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --install)    INSTALL_MODE="yes" ;;
+        --no-install) INSTALL_MODE="no" ;;
+        --run)        RUN_MODE="yes" ;;
+        --no-run)     RUN_MODE="no" ;;
+        *)
+            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run]"
+            echo "  --install     自动安装到 /Applications，不询可"
+            echo "  --no-install  跳过安装，不询可"
+            echo "  --run         安装后自动运行，不询可"
+            echo "  --no-run      安装后不运行，不询可"
+            echo "  (不传参则全部交互询问)"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
 BUILD_DIR="build"
 APP_NAME="WeSafeChat"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
@@ -37,22 +60,58 @@ rm -rf "$ICONSET" AppIcon.icns
 
 echo "==> 构建完成: ${APP_BUNDLE}"
 
-echo ""
-read -p "是否安装到 /Applications 目录？(y/n) " install_choice
-if [[ "$install_choice" == "y" || "$install_choice" == "Y" ]]; then
-    INSTALL_TARGET="/Applications/${APP_NAME}.app"
-    if [ -d "$INSTALL_TARGET" ]; then
-        rm -rf "$INSTALL_TARGET"
-    fi
-    cp -R "$APP_BUNDLE" /Applications/
-    echo "==> 已安装到 ${INSTALL_TARGET}"
+INSTALL_TARGET="/Applications/${APP_NAME}.app"
+INSTALLED=false
 
-    echo ""
-    read -p "是否立即运行？(y/n) " run_choice
-    if [[ "$run_choice" == "y" || "$run_choice" == "Y" ]]; then
-        open "$INSTALL_TARGET"
-        echo "==> 已启动"
-    fi
+# ── install phase ──
+resolve_install() {
+    case "$INSTALL_MODE" in
+        yes)
+            if [ -d "$INSTALL_TARGET" ]; then
+                rm -rf "$INSTALL_TARGET"
+            fi
+            cp -R "$APP_BUNDLE" /Applications/
+            echo "==> 已安装到 ${INSTALL_TARGET}"
+            INSTALLED=true
+            ;;
+        no)
+            echo "==> 跳过安装"
+            ;;
+        *)
+            echo ""
+            read -p "是否安装到 /Applications 目录？(y/n) " install_choice
+            if [[ "$install_choice" == "y" || "$install_choice" == "Y" ]]; then
+                if [ -d "$INSTALL_TARGET" ]; then
+                    rm -rf "$INSTALL_TARGET"
+                fi
+                cp -R "$APP_BUNDLE" /Applications/
+                echo "==> 已安装到 ${INSTALL_TARGET}"
+                INSTALLED=true
+            fi
+            ;;
+    esac
+}
+
+resolve_install
+
+# ── run phase ──
+if $INSTALLED; then
+    case "$RUN_MODE" in
+        yes)
+            open "$INSTALL_TARGET"
+            echo "==> 已启动"
+            ;;
+        no)
+            ;;
+        *)
+            echo ""
+            read -p "是否立即运行？(y/n) " run_choice
+            if [[ "$run_choice" == "y" || "$run_choice" == "Y" ]]; then
+                open "$INSTALL_TARGET"
+                echo "==> 已启动"
+            fi
+            ;;
+    esac
 fi
 
 echo "==> 完成"
