@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
+BUILD_DIR="build"
 APP_NAME="WeSafeChat"
-APP_BUNDLE="${APP_NAME}.app"
+APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents/MacOS"
 
 echo "==> 清理旧构建..."
@@ -39,16 +40,17 @@ echo "==> 构建完成: ${APP_BUNDLE}"
 echo ""
 read -p "是否安装到 /Applications 目录？(y/n) " install_choice
 if [[ "$install_choice" == "y" || "$install_choice" == "Y" ]]; then
-    if [ -d "/Applications/${APP_BUNDLE}" ]; then
-        rm -rf "/Applications/${APP_BUNDLE}"
+    INSTALL_TARGET="/Applications/${APP_NAME}.app"
+    if [ -d "$INSTALL_TARGET" ]; then
+        rm -rf "$INSTALL_TARGET"
     fi
     cp -R "$APP_BUNDLE" /Applications/
-    echo "==> 已安装到 /Applications/${APP_BUNDLE}"
+    echo "==> 已安装到 ${INSTALL_TARGET}"
 
     echo ""
     read -p "是否立即运行？(y/n) " run_choice
     if [[ "$run_choice" == "y" || "$run_choice" == "Y" ]]; then
-        open "/Applications/${APP_BUNDLE}"
+        open "$INSTALL_TARGET"
         echo "==> 已启动"
     fi
 fi
