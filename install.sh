@@ -79,7 +79,7 @@ resolve_install() {
             ;;
         *)
             echo ""
-            read -p "是否安装到 /Applications 目录？(y/n) " install_choice
+            read -r -p "是否安装到 /Applications 目录？(y/n) " install_choice < /dev/tty
             if [[ "$install_choice" == "y" || "$install_choice" == "Y" ]]; then
                 if [ -d "$INSTALL_TARGET" ]; then
                     rm -rf "$INSTALL_TARGET"
@@ -105,7 +105,7 @@ if $INSTALLED; then
             ;;
         *)
             echo ""
-            read -p "是否立即运行？(y/n) " run_choice
+            read -r -p "是否立即运行？(y/n) " run_choice < /dev/tty
             if [[ "$run_choice" == "y" || "$run_choice" == "Y" ]]; then
                 open "$INSTALL_TARGET"
                 echo "==> 已启动"
