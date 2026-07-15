@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var statusItem: NSStatusItem!
     var closeTimer: Timer?
+    var idleCheckTimer: Timer?
     var isSafing = false
     var isHidden = false
 
@@ -105,15 +106,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func quitApp() {
         NSApp.terminate(nil)
     }
-
     func startObserving() {
         let nc = NSWorkspace.shared.notificationCenter
         nc.addObserver(self, selector: #selector(appActivated), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         nc.addObserver(self, selector: #selector(appDeactivated), name: NSWorkspace.didDeactivateApplicationNotification, object: nil)
+        startIdleCheck()
     }
 
     func stopObserving() {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        stopIdleCheck()
     }
 
     @objc func appActivated(_ notification: Notification) {
@@ -163,6 +165,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             timer.invalidate()
             closeTimer = nil
         }
+    }
+
+    // MARK: - Idle Detection
+
+    func systemIdleTime() -> TimeInterval {
+        let eventTypes: [CGEventType] = [
+            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
+            .otherMouseDown, .otherMouseUp,
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged,
+            .keyDown, .keyUp, .flagsChanged,
+            .scrollWheel,
+        ]
+        var minIdle = TimeInterval.greatestFiniteMagnitude
+        for type in eventTypes {
+            let idle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: type)
+            if idle < minIdle { minIdle = idle }
+        }
+        return minIdle
+    }
+
+    func startIdleCheck() {
+        stopIdleCheck()
+        idleCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self, self.isSafing else { return }
+            guard self.isWeChatFrontmost(), !self.isHidden else { return }
+            if self.systemIdleTime() >= self.delaySeconds {
+                self.hideWeChat()
+            }
+        }
+        RunLoop.current.add(idleCheckTimer!, forMode: .common)
+    }
+
+    func stopIdleCheck() {
+        idleCheckTimer?.invalidate()
+        idleCheckTimer = nil
     }
 
     func hideWeChat() {
