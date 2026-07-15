@@ -60,3 +60,4 @@ Cask `postflight` strips `com.apple.quarantine` xattr.
 - Menu item titles in Chinese
 - SMAppService for login item
 - Info.plist: LSUIElement=true (no dock icon)
+- Info.plist: keep CFBundleShortVersionString and CFBundleVersion in sync with git tag before release
