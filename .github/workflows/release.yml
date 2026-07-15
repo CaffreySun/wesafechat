@@ -18,7 +18,7 @@ jobs:
       - name: Extract changelog
         run: |
           VERSION="${GITHUB_REF##*/v}"
-          sed -n "/^## \[$VERSION\]/,/^## \[/{/^## \[/d;p}" CHANGELOG.md > /tmp/release-notes.md
+          awk "/^## \[$VERSION\]/{found=1; next} /^## \[/{found=0} found" CHANGELOG.md > /tmp/release-notes.md
 
       - name: Create Release
         run: |
