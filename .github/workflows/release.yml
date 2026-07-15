@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and package
+        run: bash scripts/release.sh "${GITHUB_REF##*/v}"
+
+      - name: Create Release
+        run: |
+          VERSION="${GITHUB_REF##*/v}"
+          ZIP="WeSafeChat-v${VERSION}.app.zip"
+          SHA256=$(shasum -a 256 "$ZIP" | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "$ZIP"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        id: release
+
+      - name: Update Homebrew Cask
+        run: |
+          VERSION="${GITHUB_REF##*/v}"
+          git clone "https://${{ secrets.TAP_TOKEN }}@github.com/CaffreySun/homebrew-tap.git" tap-repo
+          cd tap-repo
+          sed -i '' \
+            -e "s/version \".*\"/version \"$VERSION\"/" \
+            -e "s/sha256 \".*\"/sha256 \"${{ steps.release.outputs.sha256 }}\"/" \
+            Casks/wesafechat.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/wesafechat.rb
+          git commit -m "Update wesafechat cask to $VERSION" || true
+          git push
