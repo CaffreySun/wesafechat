@@ -29,6 +29,12 @@ APP_NAME="WeSafeChat"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents/MacOS"
 
+if pgrep -x "$APP_NAME" &> /dev/null; then
+    echo "==> 终止正在运行的 ${APP_NAME}..."
+    pkill -x "$APP_NAME" || true
+    sleep 0.5
+fi
+
 echo "==> 清理旧构建..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$CONTENTS"
