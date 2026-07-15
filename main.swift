@@ -36,12 +36,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         safeMenuItem.target = self
+        safeMenuItem.toolTip = "开始/停止监控微信窗口"
         autoLaunchMenuItem.target = self
-        idleDetectionMenuItem.target = self
-        idleDetectionMenuItem.state = idleDetectionEnabled ? .on : .off
+        autoLaunchMenuItem.toolTip = "登录时自动启动 WeSafeChat"
         autoLaunchMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        idleDetectionMenuItem.target = self
+        idleDetectionMenuItem.toolTip = "微信有焦点但无操作时自动隐藏"
+        idleDetectionMenuItem.state = idleDetectionEnabled ? .on : .off
 
         let delaySubmenuItem = NSMenuItem(title: "安全延迟", action: nil, keyEquivalent: "")
+        delaySubmenuItem.toolTip = "隐藏前的等待时间"
         for (index, item) in delayItems.enumerated() {
             item.target = self
             item.tag = index + 1
@@ -56,6 +60,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(delaySubmenuItem)
         menu.addItem(NSMenuItem.separator())
         let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.toolTip = "退出 WeSafeChat"
         quitItem.target = self
         menu.addItem(quitItem)
         statusItem.menu = menu
