@@ -12,6 +12,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate release
+        run: |
+          VERSION="${GITHUB_REF##*/v}"
+          errors=0
+
+          # 1. Info.plist CFBundleShortVersionString matches tag version
+          plist_ver=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist)
+          if [ "$plist_ver" != "$VERSION" ]; then
+            echo "❌ Info.plist CFBundleShortVersionString ($plist_ver) != tag ($VERSION)"
+            errors=$((errors + 1))
+          fi
+
+          # 2. Info.plist CFBundleVersion matches tag version
+          bundle_ver=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" Info.plist)
+          if [ "$bundle_ver" != "$VERSION" ]; then
+            echo "❌ Info.plist CFBundleVersion ($bundle_ver) != tag ($VERSION)"
+            errors=$((errors + 1))
+          fi
+
+          # 3. CHANGELOG.md has a section for this version
+          if ! awk "/^## \[$VERSION\]/{found=1} END{exit found ? 0 : 1}" CHANGELOG.md; then
+            echo "❌ CHANGELOG.md missing section: ## [$VERSION]"
+            errors=$((errors + 1))
+          fi
+
+          if [ $errors -gt 0 ]; then
+            echo "❌ $errors validation error(s) found. Fix and re-tag."
+            exit 1
+          fi
+          echo "✅ All release checks passed"
+
       - name: Build and package
         run: bash scripts/release.sh "${GITHUB_REF##*/v}"
 
