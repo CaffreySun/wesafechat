@@ -1,6 +1,7 @@
 import Cocoa
 import ServiceManagement
 
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     let APP_NAME = "WeChat"
     let BUNDLE_ID = "com.tencent.xinWeChat"
@@ -149,6 +150,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
         let linkURL = URL(string: "https://github.com/CaffreySun/wesafechat")!
+        let licenseURL = URL(string: "https://github.com/CaffreySun/wesafechat/blob/main/LICENSE")!
 
         let attrStr = NSMutableAttributedString()
         attrStr.append(NSAttributedString(string: "macOS 菜单栏工具，自动隐藏微信窗口。\n\nGitHub: ", attributes: [.font: font]))
@@ -158,17 +160,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .foregroundColor: NSColor.linkColor,
             .underlineStyle: NSUnderlineStyle.single.rawValue,
         ]))
+        attrStr.append(NSAttributedString(string: "\n\n", attributes: [.font: font]))
+        attrStr.append(NSAttributedString(string: "MIT License", attributes: [
+            .link: licenseURL,
+            .font: font,
+            .foregroundColor: NSColor.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+        ]))
 
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 280, height: 44))
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 280, height: 66))
         textView.isEditable = false
+        textView.isSelectable = false
         textView.drawsBackground = false
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
         textView.textStorage?.setAttributedString(attrStr)
-        textView.linkTextAttributes = [
-            .foregroundColor: NSColor.linkColor,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-        ]
+
+        let click = NSClickGestureRecognizer(target: self, action: #selector(aboutTextClicked(_:)))
+        textView.addGestureRecognizer(click)
 
         alert.accessoryView = textView
         alert.addButton(withTitle: "确定")
@@ -177,13 +186,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.runModal()
     }
 
+    @objc private func aboutTextClicked(_ gesture: NSClickGestureRecognizer) {
+        guard let textView = gesture.view as? NSTextView,
+              let lm = textView.layoutManager,
+              let tc = textView.textContainer else { return }
+        let point = gesture.location(in: textView)
+        let glyphIdx = lm.glyphIndex(for: point, in: tc)
+        let charIdx = lm.characterIndexForGlyph(at: glyphIdx)
+        guard charIdx < textView.attributedString().length else { return }
+        if let url = textView.attributedString().attribute(.link, at: charIdx, effectiveRange: nil) as? URL {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+
     func startObserving() {
         let nc = NSWorkspace.shared.notificationCenter
         nc.addObserver(self, selector: #selector(appActivated), name: NSWorkspace.didActivateApplicationNotification, object: nil)
         nc.addObserver(self, selector: #selector(appDeactivated), name: NSWorkspace.didDeactivateApplicationNotification, object: nil)
         startIdleCheck()
     }
-
     func stopObserving() {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         stopIdleCheck()
