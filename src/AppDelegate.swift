@@ -174,6 +174,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         textView.drawsBackground = false
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
+        textView.alignment = .center
         textView.textStorage?.setAttributedString(attrStr)
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(aboutTextClicked(_:)))
