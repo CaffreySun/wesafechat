@@ -27,6 +27,8 @@ src/ExtInt.swift       — Int.then() utility
 ```bash
 bash install.sh --install --run     # build + install + launch
 bash install.sh --output ./build    # build to custom dir
+swiftlint lint                      # check code style
+swiftlint lint --fix                # auto-fix safe violations
 bash scripts/check-release.sh 0.3.4  # pre-tag validation
 bash scripts/tag-release.sh 0.3.4     # validate + tag + push
 ```

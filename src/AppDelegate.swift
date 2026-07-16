@@ -1,7 +1,6 @@
 import Cocoa
 import ServiceManagement
 
-
 class AppDelegate: NSObject, NSApplicationDelegate {
     let APP_NAME = "WeChat"
     let BUNDLE_ID = "com.tencent.xinWeChat"
@@ -171,7 +170,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .credits: credits,
         ])
     }
-
 
     func startObserving() {
         let nc = NSWorkspace.shared.notificationCenter
