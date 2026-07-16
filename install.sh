@@ -64,7 +64,10 @@ swiftc main.swift src/*.swift -o "${CONTENTS}/${APP_NAME}" \
   -framework Cocoa -framework ServiceManagement
 
 echo "==> 复制 Info.plist..."
+BUILD_VERSION=$(date +%y%m%d%H%M)
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_VERSION}" "${APP_BUNDLE}/Contents/Info.plist"
+echo "    CFBundleVersion = ${BUILD_VERSION}"
 
 echo "==> 生成应用图标..."
 ICONSET="${BUILD_DIR}/AppIcon.iconset"

@@ -24,10 +24,9 @@ jobs:
             errors=$((errors + 1))
           fi
 
-          # 2. Info.plist CFBundleVersion matches tag version
-          bundle_ver=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" Info.plist)
-          if [ "$bundle_ver" != "$VERSION" ]; then
-            echo "❌ Info.plist CFBundleVersion ($bundle_ver) != tag ($VERSION)"
+          # 2. Info.plist CFBundleVersion exists (auto-generated at build time)
+          if ! /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" Info.plist >/dev/null 2>&1; then
+            echo "❌ Info.plist CFBundleVersion is missing"
             errors=$((errors + 1))
           fi
 

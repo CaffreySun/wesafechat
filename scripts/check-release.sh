@@ -21,13 +21,13 @@ else
     echo "  ✓ CFBundleShortVersionString = $VERSION"
 fi
 
-# 2. Info.plist CFBundleVersion matches version
+# 2. Info.plist CFBundleVersion exists (auto-generated at build time)
 bundle_ver=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" Info.plist 2>/dev/null)
-if [ "$bundle_ver" != "$VERSION" ]; then
-    echo "  ❌ Info.plist CFBundleVersion ($bundle_ver) != $VERSION"
-    errors=$((errors + 1))
+if [ -n "$bundle_ver" ]; then
+    echo "  ✓ CFBundleVersion = $bundle_ver (build-time)"
 else
-    echo "  ✓ CFBundleVersion = $VERSION"
+    echo "  ❌ Info.plist CFBundleVersion is missing"
+    errors=$((errors + 1))
 fi
 
 # 3. CHANGELOG.md has a section for this version
