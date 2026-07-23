@@ -79,14 +79,15 @@ class Core {
 
 ```
 src/
-  Core.swift         纯逻辑，不依赖 Cocoa
-  AppDelegate.swift  薄壳，翻译事件 + 执行 Action
-  Migration.swift    UserDefaults 迁移
+  logic/
+    Core.swift          纯逻辑，不依赖 Cocoa（100% 覆盖率）
+    Migration.swift      UserDefaults 迁移（100% 覆盖率）
+  AppDelegate.swift      薄壳，翻译事件 + 执行 Action
 tests/
-  TestCore.swift     断言 Core 输出
-  TestMigration.swift 断言迁移结果
+  TestCore.swift         断言 Core 输出
+  TestMigration.swift     断言迁移结果
 scripts/
-  test.sh            swiftc 编译 + 运行测试
+  test.sh                swiftc 编译 + 运行测试 + 覆盖率检查
 ```
 
 ### 测试写法
@@ -98,10 +99,8 @@ assert(core.handle(.focusChanged(isFrontmost: false)) == [.startCloseTimer(delay
 
 ## 添加新功能的流程
 
-以"只在工作时间隐藏"为例：
-
-1. 在 `Core` 中添加判断条件（如 `isWorkingHours` 闭包属性，默认 `{ true }`）
-2. 在 `handle` 相关分支中加入 guard
-3. 在 `TestCore` 中添加测试：构造不同时间 → 断言 `handle` 返回的 Action 列表
-4. 运行 `bash scripts/test.sh` 确认通过
-5. 在 `AppDelegate` 中注入真实实现（如读取系统时钟）
+1. 在 `Core` 中添加配置属性 + 判断逻辑（纯计算，不碰系统 API）
+2. 在 `TestCore` 中写测试：构造不同的 Event 输入 → 断言 `handle` 返回的 Action 列表
+3. 运行 `bash scripts/test.sh` 确认通过
+4. 在 `AppDelegate` 中注入真实系统数据（如读取时间、读取前台 app）
+5. 给新逻辑加上菜单入口（如果需要用户配置）

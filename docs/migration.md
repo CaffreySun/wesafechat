@@ -1,6 +1,6 @@
 # Data Migration Guide
 
-WeSafeChat 使用 `schemaVersion`（整数）管理 UserDefaults 数据结构升级。启动时 `Migration.run()` 按版本号逐步执行迁移。
+WeSafeChat 使用 `schemaVersion`（整数）管理 UserDefaults 数据结构升级。启动时 `Migration.runWith(defaults)` 按版本号逐步执行迁移。
 
 ## 原理
 
@@ -14,7 +14,7 @@ schemaVersion = N               → 已迁移到对应的数据结构版本
 
 ## 如何添加新的迁移步骤
 
-1. 在 `src/Migration.swift` 的 `run()` 中添加新分支：
+1. 在 `src/logic/Migration.swift` 的 `runWith` 中添加新分支：
 
 ```swift
 if version < 2 {

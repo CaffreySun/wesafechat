@@ -26,10 +26,9 @@ src/logic/Migration.swift  — UserDefaults schema migration         (100% cover
 UserDefaults schema upgrades are driven by `schemaVersion` (integer). See [docs/migration.md](docs/migration.md) for the detailed guide.
 
 At a glance:
-- `Migration.run()` is called first in `applicationDidFinishLaunching`
+- `Migration.runWith(defaults)` is called first in `applicationDidFinishLaunching`
 - Each migration step is a private static method (`migrateToV1`, `migrateToV2`, ...)
 - `schemaVersion` only increments when data shape changes, not on every release
-- New file: `src/Migration.swift` — struct with static methods
 
 ## Development Commands
 
@@ -40,8 +39,8 @@ bash install.sh --test              # compile & run tests
 bash scripts/test.sh                # run tests directly
 swiftlint lint                      # check code style
 swiftlint lint --fix                # auto-fix safe violations
-bash scripts/check-release.sh 0.3.4  # pre-tag validation
-bash scripts/tag-release.sh 0.3.4     # validate + tag + push
+bash scripts/check-release.sh 0.4.0  # pre-tag validation
+bash scripts/tag-release.sh 0.4.0     # validate + tag + push
 ```
 
 ## install.sh Flags
