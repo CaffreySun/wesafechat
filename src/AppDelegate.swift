@@ -5,15 +5,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let BUNDLE_ID = "com.tencent.xinWeChat"
     let defaults = UserDefaults.standard
 
-    var focusLossEnabled = false
-    var focusLossDelaySeconds: TimeInterval = 3.0
-    var idleDetectionEnabled = true
-    var idleDelaySeconds: TimeInterval = 5.0
-
     var statusItem: NSStatusItem!
     var closeTimer: Timer?
     var idleCheckTimer: Timer?
-    var isHidden = false
 
     let focusLossMenuItem = NSMenuItem(title: "无焦点隐藏", action: #selector(toggleFocusLoss), keyEquivalent: "")
     let idleDetectionMenuItem = NSMenuItem(title: "无操作隐藏", action: #selector(toggleIdleDetection), keyEquivalent: "")
@@ -28,16 +22,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     let aboutMenuItem = NSMenuItem(title: "关于", action: #selector(showAbout), keyEquivalent: "")
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        Migration.run()
+    var core: Core!
 
-        focusLossEnabled = defaults.bool(forKey: "focusLossEnabled")
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Migration.runWith(defaults)
+
+        let focusLossEnabled = defaults.bool(forKey: "focusLossEnabled")
         let fdl = defaults.integer(forKey: "focusLossDelaySeconds")
-        focusLossDelaySeconds = TimeInterval(fdl > 0 ? fdl : 3)
         let loadedIdle = defaults.object(forKey: "idleDetectionEnabled")
-        idleDetectionEnabled = (loadedIdle as? Bool) ?? true
+        let idleDetectionEnabled = (loadedIdle as? Bool) ?? true
         let idl = defaults.integer(forKey: "idleDelaySeconds")
-        idleDelaySeconds = TimeInterval(idl > 0 ? idl : 5)
+        core = Core(
+            focusLossEnabled: focusLossEnabled,
+            idleDetectionEnabled: idleDetectionEnabled,
+            focusLossDelay: TimeInterval(fdl > 0 ? fdl : 3),
+            idleDelay: TimeInterval(idl > 0 ? idl : 5)
+        )
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
@@ -45,38 +45,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.image?.size = NSSize(width: 18, height: 18)
         }
 
+        buildMenu()
+        setupObservers()
+
+        if core.focusLossEnabled {
+            checkAndHandleFocusChange()
+        }
+        startIdleTimer()
+        syncUI()
+    }
+
+    // MARK: - Menu
+
+    func buildMenu() {
         let menu = NSMenu()
+
         focusLossMenuItem.target = self
         focusLossMenuItem.toolTip = "微信失去焦点时自动隐藏"
-        focusLossMenuItem.state = focusLossEnabled ? .on : .off
-
         let focusLossDelaySubmenu = NSMenuItem(title: "无焦点隐藏延时", action: nil, keyEquivalent: "")
         focusLossDelaySubmenu.toolTip = "失去焦点后等待时间"
         for (index, item) in focusLossDelayItems.enumerated() {
             item.target = self
             item.tag = index + 1
-            if item.tag == Int(focusLossDelaySeconds) { item.state = .on }
             focusLossDelayMenu.addItem(item)
         }
         focusLossDelaySubmenu.submenu = focusLossDelayMenu
 
         idleDetectionMenuItem.target = self
         idleDetectionMenuItem.toolTip = "微信有焦点但无操作时自动隐藏"
-        idleDetectionMenuItem.state = idleDetectionEnabled ? .on : .off
-
         let idleDelaySubmenu = NSMenuItem(title: "无操作隐藏延时", action: nil, keyEquivalent: "")
         idleDelaySubmenu.toolTip = "无操作后等待时间"
         for (index, item) in idleDelayItems.enumerated() {
             item.target = self
             item.tag = index + 1
-            if item.tag == Int(idleDelaySeconds) { item.state = .on }
             idleDelayMenu.addItem(item)
         }
         idleDelaySubmenu.submenu = idleDelayMenu
 
         autoLaunchMenuItem.target = self
         autoLaunchMenuItem.toolTip = "登录时自动启动 WeSafeChat"
-        autoLaunchMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
 
         menu.addItem(focusLossMenuItem)
         menu.addItem(focusLossDelaySubmenu)
@@ -92,55 +99,181 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
         statusItem.menu = menu
-
-        if focusLossEnabled {
-            startObserving()
-            checkAndHandleFocusChange()
-        }
-        if idleDetectionEnabled {
-            startIdleCheck()
-        }
-        updateStatusIcon()
     }
 
-    // MARK: - Status Icon
+    // MARK: - UI Sync
 
-    func updateStatusIcon() {
-        if focusLossEnabled || idleDetectionEnabled {
-            statusItem.button?.image = NSImage(systemSymbolName: "eye", accessibilityDescription: "Monitoring")
-            statusItem.button?.image?.size = NSSize(width: 18, height: 18)
-        } else {
-            statusItem.button?.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: "WeChat Monitor")
-            statusItem.button?.image?.size = NSSize(width: 18, height: 18)
+    func syncUI() {
+        focusLossMenuItem.state = core.focusLossEnabled ? .on : .off
+        idleDetectionMenuItem.state = core.idleDetectionEnabled ? .on : .off
+        for item in focusLossDelayItems {
+            item.state = (item.tag == Int(core.focusLossDelay)) ? .on : .off
         }
+        for item in idleDelayItems {
+            item.state = (item.tag == Int(core.idleDelay)) ? .on : .off
+        }
+        autoLaunchMenuItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+    }
+
+    // MARK: - Action Executor
+
+    func execute(_ actions: [Action]) {
+        for action in actions {
+            switch action {
+            case .hideWeChat:
+                let apps = NSRunningApplication.runningApplications(withBundleIdentifier: BUNDLE_ID)
+                let found = !apps.isEmpty
+                for app in apps { app.hide() }
+                if !found {
+                    core.resetHidden()
+                }
+            case .startCloseTimer(let delay):
+                cancelCloseTimer()
+                closeTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+                    guard let self else { return }
+                    let frontmost = self.isWeChatFrontmost()
+                    let result = self.core.handle(.closeTimerFired(isFrontmost: frontmost))
+                    self.closeTimer = nil
+                    self.execute(result)
+                    self.syncUI()
+                }
+                if let timer = closeTimer {
+                    RunLoop.current.add(timer, forMode: .common)
+                }
+            case .cancelCloseTimer:
+                cancelCloseTimer()
+            case .startIdleCheck:
+                startIdleTimer()
+            case .stopIdleCheck:
+                stopIdleTimer()
+            case .scheduleHiddenReset:
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    self?.core.resetHidden()
+                }
+            case .persistSettings:
+                defaults.set(core.focusLossEnabled, forKey: "focusLossEnabled")
+                defaults.set(Int(core.focusLossDelay), forKey: "focusLossDelaySeconds")
+                defaults.set(core.idleDetectionEnabled, forKey: "idleDetectionEnabled")
+                defaults.set(Int(core.idleDelay), forKey: "idleDelaySeconds")
+            case .updateStatusIcon:
+                if core.focusLossEnabled || core.idleDetectionEnabled {
+                    statusItem.button?.image = NSImage(systemSymbolName: "eye", accessibilityDescription: "Monitoring")
+                    statusItem.button?.image?.size = NSSize(width: 18, height: 18)
+                } else {
+                    statusItem.button?.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: "WeChat Monitor")
+                    statusItem.button?.image?.size = NSSize(width: 18, height: 18)
+                }
+            }
+        }
+    }
+
+    // MARK: - Observers
+
+    func setupObservers() {
+        let nc = NSWorkspace.shared.notificationCenter
+        nc.addObserver(self, selector: #selector(appActivated), name: NSWorkspace.didActivateApplicationNotification, object: nil)
+        nc.addObserver(self, selector: #selector(appDeactivated), name: NSWorkspace.didDeactivateApplicationNotification, object: nil)
+    }
+
+    @objc func appActivated(_ notification: Notification) {
+        let frontmost = isWeChatFrontmost()
+        let result = core.handle(.focusChanged(isFrontmost: frontmost))
+        execute(result)
+        syncUI()
+    }
+
+    @objc func appDeactivated(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              app.bundleIdentifier == BUNDLE_ID else { return }
+        let result = core.handle(.focusChanged(isFrontmost: false))
+        execute(result)
+        syncUI()
+    }
+
+    // MARK: - Focus Loss
+
+    func isWeChatFrontmost() -> Bool {
+        return NSWorkspace.shared.frontmostApplication?.bundleIdentifier == BUNDLE_ID
+    }
+
+    func checkAndHandleFocusChange() {
+        let frontmost = isWeChatFrontmost()
+        let result = core.handle(.focusChanged(isFrontmost: frontmost))
+        execute(result)
+    }
+
+    func cancelCloseTimer() {
+        if let timer = closeTimer {
+            timer.invalidate()
+            closeTimer = nil
+        }
+    }
+
+    // MARK: - Idle Detection
+
+    func systemIdleTime() -> TimeInterval {
+        let eventTypes: [CGEventType] = [
+            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
+            .otherMouseDown, .otherMouseUp,
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged,
+            .keyDown, .keyUp, .flagsChanged,
+            .scrollWheel,
+        ]
+        var minIdle = TimeInterval.greatestFiniteMagnitude
+        for type in eventTypes {
+            let idle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: type)
+            if idle < minIdle { minIdle = idle }
+        }
+        return minIdle
+    }
+
+    func startIdleTimer() {
+        stopIdleTimer()
+        idleCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let frontmost = self.isWeChatFrontmost()
+            let idleTime = self.systemIdleTime()
+            let result = self.core.handle(.idleCheckTick(isFrontmost: frontmost, idleTime: idleTime))
+            self.execute(result)
+            self.syncUI()
+        }
+        if let timer = idleCheckTimer {
+            RunLoop.current.add(timer, forMode: .common)
+        }
+    }
+
+    func stopIdleTimer() {
+        idleCheckTimer?.invalidate()
+        idleCheckTimer = nil
     }
 
     // MARK: - Toggle Actions
 
     @objc func toggleFocusLoss() {
-        focusLossEnabled.toggle()
-        defaults.set(focusLossEnabled, forKey: "focusLossEnabled")
-        focusLossMenuItem.state = focusLossEnabled ? .on : .off
-        if focusLossEnabled {
-            startObserving()
+        let result = core.setFocusLossEnabled(!core.focusLossEnabled)
+        if core.focusLossEnabled {
             checkAndHandleFocusChange()
-        } else {
-            cancelCloseTimer()
-            stopObserving()
         }
-        updateStatusIcon()
+        execute(result)
+        syncUI()
     }
 
     @objc func toggleIdleDetection() {
-        idleDetectionEnabled.toggle()
-        defaults.set(idleDetectionEnabled, forKey: "idleDetectionEnabled")
-        idleDetectionMenuItem.state = idleDetectionEnabled ? .on : .off
-        if idleDetectionEnabled {
-            startIdleCheck()
-        } else {
-            stopIdleCheck()
-        }
-        updateStatusIcon()
+        let result = core.setIdleDetectionEnabled(!core.idleDetectionEnabled)
+        execute(result)
+        syncUI()
+    }
+
+    @objc func setFocusLossDelay(_ sender: NSMenuItem) {
+        let result = core.setFocusLossDelay(TimeInterval(sender.tag))
+        execute(result)
+        syncUI()
+    }
+
+    @objc func setIdleDelay(_ sender: NSMenuItem) {
+        let result = core.setIdleDelay(TimeInterval(sender.tag))
+        execute(result)
+        syncUI()
     }
 
     @objc func toggleAutoLaunch() {
@@ -148,14 +281,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             if service.status == .enabled {
                 try service.unregister()
-                autoLaunchMenuItem.state = .off
             } else {
                 try service.register()
-                autoLaunchMenuItem.state = .on
             }
         } catch {
             print("开机自启设置失败: \(error)")
         }
+        syncUI()
     }
 
     @objc func quitApp() {
@@ -194,140 +326,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.orderFrontStandardAboutPanel(options: [
             .credits: credits,
         ])
-    }
-
-    // MARK: - Delay Settings
-
-    @objc func setFocusLossDelay(_ sender: NSMenuItem) {
-        focusLossDelaySeconds = TimeInterval(sender.tag)
-        defaults.set(sender.tag, forKey: "focusLossDelaySeconds")
-        for item in focusLossDelayItems {
-            item.state = (item.tag == sender.tag) ? .on : .off
-        }
-        if closeTimer != nil {
-            startCloseTimer()
-        }
-    }
-
-    @objc func setIdleDelay(_ sender: NSMenuItem) {
-        idleDelaySeconds = TimeInterval(sender.tag)
-        defaults.set(sender.tag, forKey: "idleDelaySeconds")
-        for item in idleDelayItems {
-            item.state = (item.tag == sender.tag) ? .on : .off
-        }
-        if idleCheckTimer != nil {
-            stopIdleCheck()
-            startIdleCheck()
-        }
-    }
-
-    // MARK: - Focus Loss Detection
-
-    func startObserving() {
-        let nc = NSWorkspace.shared.notificationCenter
-        nc.addObserver(self, selector: #selector(appActivated), name: NSWorkspace.didActivateApplicationNotification, object: nil)
-        nc.addObserver(self, selector: #selector(appDeactivated), name: NSWorkspace.didDeactivateApplicationNotification, object: nil)
-    }
-
-    func stopObserving() {
-        NSWorkspace.shared.notificationCenter.removeObserver(self)
-    }
-
-    @objc func appActivated(_ notification: Notification) {
-        guard focusLossEnabled else { return }
-        checkAndHandleFocusChange()
-    }
-
-    @objc func appDeactivated(_ notification: Notification) {
-        guard focusLossEnabled else { return }
-        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-           app.bundleIdentifier == BUNDLE_ID {
-            checkAndHandleFocusChange()
-        }
-    }
-
-    func isWeChatFrontmost() -> Bool {
-        return NSWorkspace.shared.frontmostApplication?.bundleIdentifier == BUNDLE_ID
-    }
-
-    func checkAndHandleFocusChange() {
-        guard focusLossEnabled else { return }
-        if isWeChatFrontmost() {
-            if isHidden { isHidden = false }
-            cancelCloseTimer()
-        } else {
-            if closeTimer == nil && !isHidden {
-                startCloseTimer()
-            }
-        }
-    }
-
-    func startCloseTimer() {
-        cancelCloseTimer()
-        closeTimer = Timer.scheduledTimer(withTimeInterval: focusLossDelaySeconds, repeats: false) { [weak self] _ in
-            guard let self, self.focusLossEnabled else { return }
-            if !self.isWeChatFrontmost() {
-                self.hideWeChat()
-            } else {
-                self.isHidden = false
-            }
-            self.closeTimer = nil
-        }
-        RunLoop.current.add(closeTimer!, forMode: .common)
-    }
-
-    func cancelCloseTimer() {
-        if let timer = closeTimer {
-            timer.invalidate()
-            closeTimer = nil
-        }
-    }
-
-    // MARK: - Idle Detection
-
-    func systemIdleTime() -> TimeInterval {
-        let eventTypes: [CGEventType] = [
-            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
-            .otherMouseDown, .otherMouseUp,
-            .mouseMoved, .leftMouseDragged, .rightMouseDragged,
-            .keyDown, .keyUp, .flagsChanged,
-            .scrollWheel,
-        ]
-        var minIdle = TimeInterval.greatestFiniteMagnitude
-        for type in eventTypes {
-            let idle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: type)
-            if idle < minIdle { minIdle = idle }
-        }
-        return minIdle
-    }
-
-    func startIdleCheck() {
-        stopIdleCheck()
-        idleCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self, self.idleDetectionEnabled else { return }
-            guard self.isWeChatFrontmost(), !self.isHidden else { return }
-            if self.systemIdleTime() >= self.idleDelaySeconds {
-                self.hideWeChat()
-            }
-        }
-        RunLoop.current.add(idleCheckTimer!, forMode: .common)
-    }
-
-    func stopIdleCheck() {
-        idleCheckTimer?.invalidate()
-        idleCheckTimer = nil
-    }
-
-    // MARK: - Hide WeChat
-
-    func hideWeChat() {
-        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: BUNDLE_ID)
-        for app in apps { app.hide() }
-        isHidden = true
-        if !apps.isEmpty {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.isHidden = false
-            }
-        }
     }
 }

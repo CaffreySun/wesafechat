@@ -6,24 +6,20 @@ WeSafeChat — macOS menu-bar app (AppKit, no SwiftUI) that auto-hides WeChat on
 
 ## Architecture
 
-Single delegate class, timer-driven:
+Side effects pushed to boundary, core is pure input→output. See [docs/architecture.md](docs/architecture.md) for design rationale and side effect classification.
 
 ```
 main.swift → AppDelegate (NSApplicationDelegate)
-src/AppDelegate.swift — UI, menu, timer logic
-src/Migration.swift    — UserDefaults schema migration
-src/ExtInt.swift       — Int.then() utility
+src/AppDelegate.swift      — thin shell: UI, system glue, action executor
+src/logic/Core.swift       — pure state machine: Event → [Action]  (100% coverage)
+src/logic/Migration.swift  — UserDefaults schema migration         (100% coverage)
 ```
 
-**State**: focusLossEnabled, focusLossDelaySeconds, idleDetectionEnabled, idleDelaySeconds, isHidden (persisted to UserDefaults, keys match var names).
+**AppDelegate**: NSStatusBar/NSMenu, translates NSWorkspace/NSTimer to `core.handle(Event)`, executes returned `[Action]`.
 
-**Focus-loss detection**: NSWorkspace notifications + `frontmostApplication?.bundleIdentifier == "com.tencent.xinWeChat"`. Independent toggle, uses `focusLossDelaySeconds` (default 3s).
+**Core**: Pure logic. No Cocoa imports. Receives `Event`, returns `[Action]`. All state lives here. Separately testable without AppKit.
 
-**Idle detection**: `CGEventSource.secondsSinceLastEventType(.hidSystemState, ...)` polling 15 event types every 0.5s. No Accessibility permissions needed. Independent toggle, uses `idleDelaySeconds` (default 5s).
-
-**Hide**: `NSRunningApplication.hide()` on all WeChat instances, 0.5s debounce on isHidden flag.
-
-**Status icon**: `eye` when either toggle is on, `eye.slash` when both are off. `updateStatusIcon()` centralized helper.
+**Test**: `tests/TestCore.swift` asserts `core.handle(event) == [Action]`. No spy, no mock, no framework. `tests/TestMigration.swift` tests schema upgrades with `UserDefaults(suiteName:)`.
 
 ## Data Migration
 
@@ -40,6 +36,8 @@ At a glance:
 ```bash
 bash install.sh --install --run     # build + install + launch
 bash install.sh --output ./build    # build to custom dir
+bash install.sh --test              # compile & run tests
+bash scripts/test.sh                # run tests directly
 swiftlint lint                      # check code style
 swiftlint lint --fix                # auto-fix safe violations
 bash scripts/check-release.sh 0.3.4  # pre-tag validation
@@ -48,11 +46,11 @@ bash scripts/tag-release.sh 0.3.4     # validate + tag + push
 
 ## install.sh Flags
 
-`--install|--no-install` `--run|--no-run` `--link` `--output <dir>` — absent = interactive prompt.
+`--install|--no-install` `--run|--no-run` `--link` `--output <dir>` `--test` — absent = interactive prompt.
 
 ## Build System
 
-`swiftc main.swift src/*.swift -framework Cocoa -framework ServiceManagement`. No Xcode, no SPM.
+`swiftc main.swift src/*.swift src/logic/*.swift -framework Cocoa -framework ServiceManagement`. No Xcode, no SPM.
 
 Icon pipeline: resources/logo.png → sips (10 sizes) → iconutil → .icns → bundle Resources.
 
@@ -79,3 +77,7 @@ Cask `postflight` strips `com.apple.quarantine` xattr.
 - Info.plist: keep CFBundleShortVersionString in sync with git tag. CFBundleVersion is auto-generated as yyMMddHHmm at build time.
 - CHANGELOG.md: newest version at the top, both in content sections and bottom reference links
 - Data migration: `schemaVersion` integer in UserDefaults, `Migration` struct with per-version `private static func`, see docs/migration.md
+- Tests: no XCTest/SPM. Compile test files + src files with `swiftc`, run executable → exit 0/1
+- Test pattern: `assertEqual(core.handle(event), [Action])` — equality comparison on Action lists
+- Coverage: `src/logic/` must be 100% line coverage. Enforced by `scripts/test.sh`
+- New pure logic → `src/logic/` + 100% tests required. New system glue → `src/` no coverage requirement

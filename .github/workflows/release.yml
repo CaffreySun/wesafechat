@@ -47,6 +47,9 @@ jobs:
           fi
           echo "✅ All release checks passed"
 
+      - name: Test
+        run: bash scripts/test.sh
+
       - name: Build and package
         run: bash scripts/release.sh "${GITHUB_REF##*/v}"
 

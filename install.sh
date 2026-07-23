@@ -27,14 +27,19 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        --test)
+            bash scripts/test.sh
+            exit $?
+            ;;
         *)
-            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run] [--output <dir>] [--link]"
+            echo "用法: bash install.sh [--install|--no-install] [--run|--no-run] [--output <dir>] [--link] [--test]"
             echo "  --install     自动安装到 /Applications，不询可"
             echo "  --no-install  跳过安装，不询可"
             echo "  --run         安装后自动运行，不询可"
             echo "  --no-run      安装后不运行，不询可"
             echo "  --output      指定 .app 输出目录 (默认: build)"
             echo "  --link        创建软链接到 /Applications"
+            echo "  --test        运行测试"
             echo "  (不传参则全部交互询问)"
             exit 1
             ;;
@@ -60,7 +65,7 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$CONTENTS"
 
 echo "==> 编译 ${APP_NAME}..."
-swiftc main.swift src/*.swift -o "${CONTENTS}/${APP_NAME}" \
+swiftc main.swift src/*.swift src/logic/*.swift -o "${CONTENTS}/${APP_NAME}" \
   -framework Cocoa -framework ServiceManagement
 
 echo "==> 复制 Info.plist..."

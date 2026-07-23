@@ -1,8 +1,7 @@
 import Foundation
 
 struct Migration {
-    static func run() {
-        let defaults = UserDefaults.standard
+    static func runWith(_ defaults: UserDefaults) {
         let version = defaults.integer(forKey: "schemaVersion")
 
         if version < 1 {
