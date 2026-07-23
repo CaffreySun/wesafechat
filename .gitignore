@@ -34,6 +34,10 @@ build/
 .swiftpm/
 Package.resolved
 
+# Claude Code
+.claude/
+CLAUDE.md
+
 # Icon build artifacts
 *.iconset/
 *.icns
