@@ -13,7 +13,7 @@
     <key>CFBundleVersion</key>
     <string>BUILD_TIMESTAMP</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.3.4</string>
+    <string>0.4.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>

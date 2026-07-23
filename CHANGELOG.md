@@ -3,6 +3,16 @@
 All notable changes to WeSafeChat.
 
 
+## [0.4.0] - 2026-07-23
+
+### Changed
+- 「启动/停止」总开关拆分为「无焦点隐藏」和「无操作隐藏」两个独立开关
+- 失焦隐藏延时和无操作隐藏延时分开设置，各自有独立的 1~10 秒子菜单
+- 失焦隐藏默认 3 秒，无操作隐藏默认 5 秒
+
+### Added
+- UserDefaults 数据升级机制（`schemaVersion` 驱动），`src/Migration.swift`
+
 ## [0.3.4] - 2026-07-16
 
 ### Changed
@@ -44,6 +54,7 @@ All notable changes to WeSafeChat.
 ### Fixed
 - 修复 `install.sh` 中缺失的 `*)` case 标签
 
+[0.4.0]: https://github.com/CaffreySun/wesafechat/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/CaffreySun/wesafechat/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/CaffreySun/wesafechat/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/CaffreySun/wesafechat/compare/v0.3.1...v0.3.2
